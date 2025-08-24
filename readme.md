@@ -3,7 +3,7 @@
 
 The architecture is the same as the original [unitree_sdk2](https://github.com/unitreerobotics/unitree_mujoco)
 
-## 特点
+## Features
 
 - Add support for Yahboom USB wireless joystic
 
