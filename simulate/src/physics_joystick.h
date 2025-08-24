@@ -88,3 +88,45 @@ private:
 	std::unique_ptr<Joystick> js_;
 	int max_value_;
 };
+
+// Yahboom USB wireless joystick, red light mode
+class YahboomJoystick : public unitree::common::UnitreeJoystick
+{
+public:
+    YahboomJoystick(std::string device, int bits = 15)
+	: unitree::common::UnitreeJoystick()
+	{
+		js_ = std::make_unique<Joystick>(device);
+		if(!js_->isFound()) {
+			std::cout << "Error: Joystick open failed." << std::endl;
+			exit(1);
+		}
+        max_value_ = 1 << (bits - 1);
+	}
+
+    void update() override
+    {
+        js_->getState();
+        back(js_->button_[10]); // select button
+        start(js_->button_[11]);
+        LB(js_->button_[6]);
+        RB(js_->button_[7]);
+        A(js_->button_[0]);
+        B(js_->button_[1]); 
+        X(js_->button_[3]);
+        Y(js_->button_[4]);
+        up(js_->axis_[7] < 0);
+        down(js_->axis_[7] > 0);
+        left(js_->axis_[6] < 0);
+        right(js_->axis_[6] > 0);
+        LT(js_->button_[8]);
+        RT(js_->button_[9]);
+        lx(double(js_->axis_[0]) / max_value_);
+        ly(-double(js_->axis_[1]) / max_value_);
+        rx(double(js_->axis_[2]) / max_value_);
+        ry(-double(js_->axis_[3]) / max_value_);
+    }
+private:
+	std::unique_ptr<Joystick> js_;
+	int max_value_;
+};
