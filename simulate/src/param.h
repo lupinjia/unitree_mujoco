@@ -26,6 +26,14 @@ inline struct SimulationConfig
     int enable_elastic_band;
     int band_attached_link = 0;
 
+    // depth config
+    int depth_width;
+    int depth_height;
+    int crop_left;
+    float far_clip;
+    float near_clip;
+    float depth_dt;
+
     void load_from_yaml(const std::string &filename)
     {
         auto cfg = YAML::LoadFile(filename);
@@ -41,6 +49,12 @@ inline struct SimulationConfig
             joystick_bits = cfg["joystick_bits"].as<int>();
             print_scene_information = cfg["print_scene_information"].as<int>();
             enable_elastic_band = cfg["enable_elastic_band"].as<int>();
+            depth_width = cfg["depth_width"].as<int>();
+            depth_height = cfg["depth_height"].as<int>();
+            crop_left = cfg["crop_left"].as<int>();
+            far_clip = cfg["far_clip"].as<float>();
+            near_clip = cfg["near_clip"].as<float>();
+            depth_dt = cfg["depth_dt"].as<float>();
         }
         catch(const std::exception& e)
         {

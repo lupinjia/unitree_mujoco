@@ -36,10 +36,6 @@
     </default>
   </default>
 
-  <!-- <visual>
-    <global offwidth="640" offheight="480" />
-  </visual> -->
-
   <asset>
     <material name="metal" rgba=".9 .95 .95 1" />
     <material name="black" rgba="0 0 0 1" />
@@ -80,7 +76,7 @@
       <geom size="0.047" pos="0.293 0 -0.06" class="collision" />
       <site name="imu" pos="-0.02557 0 0.04232" />
       <camera name="depth_camera" pos="0.315 0 0.09" euler="0 -1.57 -1.57" mode="fixed"
-              fovy="62"/>
+              fovy="62"/> <!-- fovy the same as D435i for 4:3 aspect ratio -->
       <body name="FL_hip" pos="0.1934 0.0465 0">
         <inertial pos="-0.0054 0.00194 -0.000105" quat="0.497014 0.499245 0.505462 0.498237"
           mass="0.678"

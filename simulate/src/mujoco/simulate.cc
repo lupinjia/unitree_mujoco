@@ -2020,13 +2020,18 @@ namespace mujoco
 
   Simulate::Simulate(std::unique_ptr<PlatformUIAdapter> platform_ui,
                      mjvCamera *cam, mjvOption *opt, mjvPerturb *pert,
-                     bool is_passive)
+                     bool is_passive, int depth_width, int depth_height, 
+                     int depth_crop_left, bool enable_depth)
       : is_passive_(is_passive),
         cam(*cam),
         opt(*opt),
         pert(*pert),
         platform_ui(std::move(platform_ui)),
-        uistate(this->platform_ui->state())
+        uistate(this->platform_ui->state()),
+        depth_width_(depth_width),
+        depth_height_(depth_height),
+        depth_crop_left_(depth_crop_left),
+        enable_depth_(enable_depth)
   {
     mjv_defaultScene(&scn);
     mjv_defaultSceneState(&scnstate_);
@@ -2462,6 +2467,18 @@ namespace mujoco
     this->m_ = this->mnew_;
     this->d_ = this->dnew_;
 
+    // Initialize depth camera attributes
+    if(enable_depth_)
+    {
+      printf("depth camera enabled.\n");
+      const char* depth_camera_name = "depth_camera";
+      int depth_cam_id = mj_name2id(this->m_, mjOBJ_CAMERA, depth_camera_name);
+      this->depth_cam.type = mjCAMERA_FIXED; // first camera is the depth_camera
+      this->depth_cam.fixedcamid = depth_cam_id;
+      printf("Depth camera type: %d, fixedcamid: %d\n",
+            this->depth_cam.type, this->depth_cam.fixedcamid);
+    }
+
     ncam_ = this->m_->ncam;
     nkey_ = this->m_->nkey;
     body_parentid_.resize(this->m_->nbody);
@@ -2818,6 +2835,45 @@ namespace mujoco
 
     // render scene
     mjr_render(rect, &this->scn, &this->platform_ui->mjr_context());
+
+    
+    if(enable_depth_)
+    {
+      // Render depth image
+      mjrRect depth_rect = this->uistate.rect[3];
+      depth_rect.left = rect.left + rect.width - depth_width_;
+      depth_rect.bottom = rect.bottom + rect.height - depth_height_;
+      depth_rect.width = depth_width_;
+      depth_rect.height = depth_height_;
+      mjv_updateScene(this->m_, this->d_,
+                      &this->opt, &this->pert, &this->depth_cam, mjCAT_ALL, &this->scn);
+      mjr_render(depth_rect, &this->scn, &this->platform_ui->mjr_context());
+      
+      // Read depth buffer
+      if(depth_buffer_ == nullptr)
+      {
+        depth_buffer_ = new float[depth_width_ * depth_height_];
+      }
+      if(depth_value_ == nullptr)
+      {
+        depth_value_ = new float[(depth_width_ - depth_crop_left_) * depth_height_];
+      }
+      float extent = this->m_->stat.extent;
+      float near = this->m_->vis.map.znear * extent;
+      float far = this->m_->vis.map.zfar * extent;
+      mjr_readPixels(nullptr, depth_buffer_, depth_rect, &this->platform_ui->mjr_context());
+      // Convert depth buffer to depth value, raw value is already in meters
+      for(int y = 0; y < depth_height_; y++)
+      {
+        for(int x = 0; x < (depth_width_ - depth_crop_left_); x++)
+        {
+          int buf_index = (y * depth_width_) + (x + depth_crop_left_);
+          int val_index = (y * (depth_width_ - depth_crop_left_)) + x;
+          depth_value_[val_index] = depth_buffer_[buf_index];
+          depth_value_[val_index] = near / (1.0f - depth_value_[val_index] * (1.0f - near / far) );
+        }
+      }
+    }
 
     // show last loading error
     if (this->load_error[0])

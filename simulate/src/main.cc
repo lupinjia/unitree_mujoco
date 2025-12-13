@@ -30,6 +30,7 @@
 #include "mujoco/array_safety.h"
 #include "unitree_sdk2_bridge.h"
 #include "param.h"
+#include "utils/depth_display.hpp"
 
 #define MUJOCO_PLUGIN_DIR "mujoco_plugin"
 #define NUM_MOTOR_IDL_GO 20
@@ -621,7 +622,11 @@ int main(int argc, char **argv)
   // simulate object encapsulates the UI
   auto sim = std::make_unique<mj::Simulate>(
     std::make_unique<mj::GlfwAdapter>(),
-    &cam, &opt, &pert, /* is_passive = */ false);
+    &cam, &opt, &pert, /* is_passive = */ false,
+    param::config.depth_width,
+    param::config.depth_height,
+    param::config.crop_left,
+    /* enable_depth */ true);
 
   sim->use_elastic_band_ = param::config.enable_elastic_band;
 
@@ -629,6 +634,15 @@ int main(int argc, char **argv)
 
   // start physics thread
   std::thread physicsthreadhandle(&PhysicsThread, sim.get(), param::config.robot_scene.c_str());
+  // Create depth display thread (using OpenCV to display)
+  DepthDisplay depth_display(
+    sim.get(),
+    param::config.depth_width,
+    param::config.depth_height,
+    param::config.crop_left,
+    param::config.far_clip,
+    param::config.near_clip,
+    param::config.depth_dt);
   // start simulation UI loop (blocking call)
   sim->RenderLoop();
   physicsthreadhandle.join();

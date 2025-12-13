@@ -11,8 +11,11 @@ endif()
 
 list(APPEND CMAKE_PREFIX_PATH "/opt/unitree_robotics/lib/cmake")
 find_package(mujoco REQUIRED)
+find_package(OpenCV REQUIRED)
 find_package(unitree_sdk2 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
+
+include_directories(src)
 
 file(GLOB SIM_SRC
     src/joystick/joystick.cc
@@ -30,7 +33,7 @@ set(SIM_DEPENDENCIES
 )
 
 add_executable(unitree_mujoco ${SIM_SRC} src/main.cc)
-target_link_libraries(unitree_mujoco ${SIM_DEPENDENCIES})
+target_link_libraries(unitree_mujoco ${SIM_DEPENDENCIES} ${OpenCV_LIBS})
 
 add_executable(test test/test_unitree_sdk2.cpp)
 target_link_libraries(test unitree_sdk2)
