@@ -14,3 +14,5 @@
 - 添加了对深度图像获取的支持(C++与Python)
 
   在`go2.xml`中添加了camera元素，并通过mujoco接口获取了深度图像数据. 深度图数据通过cyclonedds被发布到"rt/depthimage"话题(目前仅在Python中可用dds). 使用了unitree_sdk2py的接口来进行dds的发布和订阅. 
+
+- 按下Enter键来追踪机器人的基座, 按下Esc键使用自由相机

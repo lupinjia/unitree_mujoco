@@ -626,7 +626,7 @@ int main(int argc, char **argv)
     param::config.depth_width,
     param::config.depth_height,
     param::config.crop_left,
-    /* enable_depth */ true);
+    param::config.enable_depth);
 
   sim->use_elastic_band_ = param::config.enable_elastic_band;
 

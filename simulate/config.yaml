@@ -14,6 +14,7 @@ print_scene_information: 1 # Print link, joint and sensors information of robot
 enable_elastic_band: 0 # Virtual spring band, used for lifting h1
 
 # Depth camera settings
+enable_depth: true
 depth_width: 80
 depth_height: 60
 crop_left: 8

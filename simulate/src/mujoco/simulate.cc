@@ -1875,6 +1875,16 @@ namespace
           UiModify(&sim->ui1, state, &sim->platform_ui->mjr_context());
         }
         break;
+      
+      // 20251213 [lupinjia], press enter key to track robot base
+      case mjKEY_ENTER:
+        sim->cam.type = mjCAMERA_TRACKING;
+        sim->cam.fixedcamid = -1;
+        const char* robot_base_name = "base_link";
+        int robot_base_id = mj_name2id(sim->m_, mjOBJ_BODY, robot_base_name);
+        sim->cam.trackbodyid = robot_base_id;
+        sim->camera = 1;
+        mjui0_update_section(sim, SECT_RENDERING);
       }
 
       return;
@@ -2289,7 +2299,7 @@ namespace mujoco
                                (pending_.select_state.x - r.left) / r.width,
                                (pending_.select_state.y - r.bottom) / r.height,
                                &this->scn, selpnt, &selgeom, &selflex, &selskin);
-
+      
       // set lookat point, start tracking is requested
       if (selmode == 2 || selmode == 3)
       {
@@ -2836,45 +2846,6 @@ namespace mujoco
     // render scene
     mjr_render(rect, &this->scn, &this->platform_ui->mjr_context());
 
-    
-    if(enable_depth_)
-    {
-      // Render depth image
-      mjrRect depth_rect = this->uistate.rect[3];
-      depth_rect.left = rect.left + rect.width - depth_width_;
-      depth_rect.bottom = rect.bottom + rect.height - depth_height_;
-      depth_rect.width = depth_width_;
-      depth_rect.height = depth_height_;
-      mjv_updateScene(this->m_, this->d_,
-                      &this->opt, &this->pert, &this->depth_cam, mjCAT_ALL, &this->scn);
-      mjr_render(depth_rect, &this->scn, &this->platform_ui->mjr_context());
-      
-      // Read depth buffer
-      if(depth_buffer_ == nullptr)
-      {
-        depth_buffer_ = new float[depth_width_ * depth_height_];
-      }
-      if(depth_value_ == nullptr)
-      {
-        depth_value_ = new float[(depth_width_ - depth_crop_left_) * depth_height_];
-      }
-      float extent = this->m_->stat.extent;
-      float near = this->m_->vis.map.znear * extent;
-      float far = this->m_->vis.map.zfar * extent;
-      mjr_readPixels(nullptr, depth_buffer_, depth_rect, &this->platform_ui->mjr_context());
-      // Convert depth buffer to depth value, raw value is already in meters
-      for(int y = 0; y < depth_height_; y++)
-      {
-        for(int x = 0; x < (depth_width_ - depth_crop_left_); x++)
-        {
-          int buf_index = (y * depth_width_) + (x + depth_crop_left_);
-          int val_index = (y * (depth_width_ - depth_crop_left_)) + x;
-          depth_value_[val_index] = depth_buffer_[buf_index];
-          depth_value_[val_index] = near / (1.0f - depth_value_[val_index] * (1.0f - near / far) );
-        }
-      }
-    }
-
     // show last loading error
     if (this->load_error[0])
     {
@@ -3006,6 +2977,44 @@ namespace mujoco
       //     std::printf("saved screenshot: %s\n", path.c_str());
       //   }
       // }
+    }
+
+    if(enable_depth_)
+    {
+      // Render depth image
+      mjrRect depth_rect = this->uistate.rect[3];
+      depth_rect.left = rect.left + rect.width - depth_width_;
+      depth_rect.bottom = rect.bottom + rect.height - depth_height_;
+      depth_rect.width = depth_width_;
+      depth_rect.height = depth_height_;
+      mjv_updateScene(this->m_, this->d_,
+                      &this->opt, &this->pert, &this->depth_cam, mjCAT_ALL, &this->scn);
+      mjr_render(depth_rect, &this->scn, &this->platform_ui->mjr_context());
+      
+      // Read depth buffer
+      if(depth_buffer_ == nullptr)
+      {
+        depth_buffer_ = new float[depth_width_ * depth_height_];
+      }
+      if(depth_value_ == nullptr)
+      {
+        depth_value_ = new float[(depth_width_ - depth_crop_left_) * depth_height_];
+      }
+      float extent = this->m_->stat.extent;
+      float near = this->m_->vis.map.znear * extent;
+      float far = this->m_->vis.map.zfar * extent;
+      mjr_readPixels(nullptr, depth_buffer_, depth_rect, &this->platform_ui->mjr_context());
+      // Convert depth buffer to depth value, raw value is already in meters
+      for(int y = 0; y < depth_height_; y++)
+      {
+        for(int x = 0; x < (depth_width_ - depth_crop_left_); x++)
+        {
+          int buf_index = (y * depth_width_) + (x + depth_crop_left_);
+          int val_index = (y * (depth_width_ - depth_crop_left_)) + x;
+          depth_value_[val_index] = depth_buffer_[buf_index];
+          depth_value_[val_index] = near / (1.0f - depth_value_[val_index] * (1.0f - near / far) );
+        }
+      }
     }
 
     // finalize

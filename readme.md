@@ -20,3 +20,5 @@ The architecture is the same as the original [unitree_sdk2](https://github.com/u
   Through calling mujoco API and adding camera element in `go2.xml` we can obtain the depth image from mujoco.
 
   The processed depth image is published to a dds topic named "rt/depthimage" using cyclonedds (currently only in Python).
+
+- Press `Enter` to track base_link of the robot, press `Esc` to use free camera

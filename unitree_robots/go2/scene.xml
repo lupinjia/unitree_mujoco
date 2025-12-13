@@ -21,13 +21,13 @@
     <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
 
     <!-- Slope -->
-      <body name="up_ramp" pos="1.1 0 0.1" euler="0 0 -1.5708">
+      <body name="up_ramp" pos="2.1 0 0.1" euler="0 0 -1.5708">
             <geom type="box" size="1 1 0.1" pos="0 0 0" euler="0.3 0 0" rgba="0.5 0.5 0.5 1" friction="1.0 0.1 0.01"/>
       </body>
-      <body name="platform" pos="2.9 0 0.38" euler="0 0 0">
+      <body name="platform" pos="3.9 0 0.38" euler="0 0 0">
             <geom type="box" size="0.9 1 0.1" pos="0 0 0" rgba="0.5 0.5 0.5 1" friction="1.0 0.1 0.01"/>
       </body>
-      <body name="down_ramp" pos="4.7 0 0.1" euler="0 0 -1.5708">
+      <body name="down_ramp" pos="5.7 0 0.1" euler="0 0 -1.5708">
             <geom type="box" size="1 1 0.1" pos="0 0 0" euler="-0.3 0 0" rgba="0.5 0.5 0.5 1" friction="1.0 0.1 0.01"/>
       </body>
       
