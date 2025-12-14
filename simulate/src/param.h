@@ -33,7 +33,7 @@ inline struct SimulationConfig
     float far_clip;
     float near_clip;
     float depth_dt;
-    bool enable_depth;
+    int enable_depth;
 
     void load_from_yaml(const std::string &filename)
     {
@@ -56,7 +56,7 @@ inline struct SimulationConfig
             far_clip = cfg["far_clip"].as<float>();
             near_clip = cfg["near_clip"].as<float>();
             depth_dt = cfg["depth_dt"].as<float>();
-            enable_depth = cfg["enable_depth"].as<bool>();
+            enable_depth = cfg["enable_depth"].as<int>();
         }
         catch(const std::exception& e)
         {

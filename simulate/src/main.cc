@@ -630,19 +630,24 @@ int main(int argc, char **argv)
 
   sim->use_elastic_band_ = param::config.enable_elastic_band;
 
+  // Create depth display thread (using OpenCV to display)
+  if(param::config.enable_depth == 1)
+  {
+    // use pointer to avoid object destruction when the if scope ends
+    DepthDisplay* depth_display = new DepthDisplay(
+      sim.get(),
+      param::config.depth_width,
+      param::config.depth_height,
+      param::config.crop_left,
+      param::config.far_clip,
+      param::config.near_clip,
+      param::config.depth_dt);
+  }
+
   std::thread unitree_thread(UnitreeSdk2BridgeThread, nullptr);
 
   // start physics thread
   std::thread physicsthreadhandle(&PhysicsThread, sim.get(), param::config.robot_scene.c_str());
-  // Create depth display thread (using OpenCV to display)
-  DepthDisplay depth_display(
-    sim.get(),
-    param::config.depth_width,
-    param::config.depth_height,
-    param::config.crop_left,
-    param::config.far_clip,
-    param::config.near_clip,
-    param::config.depth_dt);
   // start simulation UI loop (blocking call)
   sim->RenderLoop();
   physicsthreadhandle.join();
