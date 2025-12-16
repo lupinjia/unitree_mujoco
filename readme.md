@@ -9,9 +9,9 @@ The architecture is the same as the original [unitree_sdk2](https://github.com/u
 
 ## Features
 
-- Add support for Yahboom USB wireless joystick (C++)
+- Add support for Yahboom USB wireless joystick and betop USB joystick (C++)
 
-  Added joystick mapping code (simulate/src/physics_joystick.h) according to the proxy of [Yahboom USB Wireless Joystick](https://yahboom.com/study_module/PS2)
+  Added joystick mapping code (simulate/src/physics_joystick.h) according to the proxy of [Yahboom USB Wireless Joystick](https://yahboom.com/study_module/PS2) and betop USB joystick
 
   Change the `joystick_type` in `simulate/config.yaml` to other values if you want to use joystick of other types
 
@@ -19,6 +19,10 @@ The architecture is the same as the original [unitree_sdk2](https://github.com/u
 
   Through calling mujoco API and adding camera element in `go2.xml` we can obtain the depth image from mujoco.
 
-  The processed depth image is published to a dds topic named "rt/depthimage" using cyclonedds (currently only in Python).
+  The processed depth image is published to a dds topic named "rt/depthimage" using cyclonedds.
 
 - Press `Enter` to track base_link of the robot, press `Esc` to use free camera
+
+## Demo
+
+![](https://github.com/lupinjia/demo_imgs/blob/master/unitree_mujoco_demo.gif)
