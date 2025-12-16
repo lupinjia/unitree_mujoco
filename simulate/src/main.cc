@@ -626,9 +626,14 @@ int main(int argc, char **argv)
     param::config.depth_width,
     param::config.depth_height,
     param::config.crop_left,
-    param::config.enable_depth);
+    param::config.enable_depth,
+    param::config.near_clip,
+    param::config.far_clip);
 
   sim->use_elastic_band_ = param::config.enable_elastic_band;
+
+  // publish and subscribe to low-level msg (motor, imu, etc) of unitree_sdk2
+  std::thread unitree_thread(UnitreeSdk2BridgeThread, nullptr);
 
   // Create depth display thread (using OpenCV to display)
   if(param::config.enable_depth == 1)
@@ -639,12 +644,10 @@ int main(int argc, char **argv)
       param::config.depth_width,
       param::config.depth_height,
       param::config.crop_left,
-      param::config.far_clip,
-      param::config.near_clip,
-      param::config.depth_dt);
+      param::config.depth_dt,
+      param::config.domain_id,
+      param::config.interface);
   }
-
-  std::thread unitree_thread(UnitreeSdk2BridgeThread, nullptr);
 
   // start physics thread
   std::thread physicsthreadhandle(&PhysicsThread, sim.get(), param::config.robot_scene.c_str());

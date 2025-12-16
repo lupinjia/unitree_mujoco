@@ -4,23 +4,44 @@
 #include "mujoco/simulate.h"
 #include <unitree/common/thread/recurrent_thread.hpp>
 #include <opencv2/opencv.hpp>
+#include "msg/DepthImage_.hpp"
+#include "unitree/robot/channel/channel_publisher.hpp"
 
 namespace mj = ::mujoco;
+using namespace unitree::robot;
+#define TOPIC_DEPTHIMAGE "rt/depthimage"
 
 class DepthDisplay
 {
 public:
     DepthDisplay(const mj::Simulate *sim, int width, 
-                int height, int crop_left, float far_clip,
-                float near_clip, float depth_dt_s)
+                int height, int crop_left, float depth_dt_s,
+                int domain_id, const std::string& interface)
         : mj_sim_(sim), width_(width), height_(height), 
-        crop_left_(crop_left), far_clip_(far_clip), near_clip_(near_clip)
+        crop_left_(crop_left)
     {
         depth_dt_us_ = static_cast<int>(depth_dt_s * 1e6);
+        ChannelFactory::Instance()->Init(domain_id, interface);
+        initDepthImagePublisherDDS();
+        printf("DepthDisplay: initialized depth image publisher on topic %s\n", TOPIC_DEPTHIMAGE);
         thread_ = std::make_shared<unitree::common::RecurrentThread>(
             "DepthDisplay", 
             UT_CPU_ID_NONE, depth_dt_us_, 
             std::bind(&DepthDisplay::displayDepthImage, this));
+    }
+
+    void initDepthImagePublisherDDS()
+    {
+        depth_image_msg_.width() = width_ - crop_left_;
+        depth_image_msg_.height() = height_;
+        depth_image_msg_.normalized_value().resize((width_ - crop_left_) * height_);
+        depth_image_msg_.normalized_value().clear();
+        for(int i = 0; i < (width_ - crop_left_) * height_; ++i)
+        {
+            depth_image_msg_.normalized_value().push_back(0.0f);
+        }
+        depth_image_publisher.reset(new ChannelPublisher<unitree_go::msg::dds_::DepthImage_>(TOPIC_DEPTHIMAGE));
+        depth_image_publisher->InitChannel();
     }
 
     void displayDepthImage()
@@ -45,37 +66,24 @@ public:
                 }
             }
         }
-
-        // clip the depth values based on near and far clip planes
-        for (int i = 0; i < depth_image.rows; ++i)
+        // flip around y axis
+        cv::flip(depth_image, depth_image, 0);
+        // fill depth_image into depth_image_msg_
+        for (int i = 0; i < height_; ++i)
         {
-            for (int j = 0; j < depth_image.cols; ++j)
+            for (int j = 0; j < width_ - crop_left_; ++j)
             {
-                float& depth = depth_image.at<float>(i, j);
-                if (depth < near_clip_)
-                {
-                    depth = near_clip_;
-                }
-                if (depth > far_clip_)
-                {
-                    depth = far_clip_;
-                }
+                depth_image_msg_.normalized_value()[i * (width_ - crop_left_) + j] = depth_image.at<float>(i, j);
             }
         }
-        // normalize the depth values to [0, 1] based on far and near clip
-        for (int i = 0; i < depth_image.rows; ++i)
+        // publish depth image message
+        if (depth_image_publisher != nullptr)
         {
-            for (int j = 0; j < depth_image.cols; ++j)
-            {
-                float& depth = depth_image.at<float>(i, j);
-                depth = (depth - near_clip_) / (far_clip_ - near_clip_);
-            }
+            depth_image_publisher->Write(depth_image_msg_);
         }
         // Convert to 8-bit for display
         cv::Mat depth_image_8u;
         depth_image.convertTo(depth_image_8u, CV_8UC1, 255.0);
-        // flip around y axis
-        cv::flip(depth_image_8u, depth_image_8u, 0);
 
         // Display the depth image using OpenCV
         cv::imshow("Depth Image", depth_image_8u);
@@ -87,10 +95,10 @@ private:
     int width_;
     int height_;
     int crop_left_;
-    float far_clip_;
-    float near_clip_;
     int depth_dt_us_; // depth display interval in microseconds
     unitree::common::RecurrentThreadPtr thread_;
+    ChannelPublisherPtr<unitree_go::msg::dds_::DepthImage_> depth_image_publisher;
+    unitree_go::msg::dds_::DepthImage_ depth_image_msg_;
 };
 
 #endif // DEPTH_DISPLAY_HPP

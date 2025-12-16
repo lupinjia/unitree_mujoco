@@ -15,7 +15,9 @@ find_package(OpenCV REQUIRED)
 find_package(unitree_sdk2 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
 
-include_directories(src)
+include_directories(
+  ${CMAKE_CURRENT_LIST_DIR}/src
+  )
 
 file(GLOB SIM_SRC
     src/joystick/joystick.cc
@@ -32,8 +34,13 @@ set(SIM_DEPENDENCIES
     fmt
 )
 
-add_executable(unitree_mujoco ${SIM_SRC} src/main.cc)
-target_link_libraries(unitree_mujoco ${SIM_DEPENDENCIES} ${OpenCV_LIBS})
+add_executable(unitree_mujoco 
+  ${SIM_SRC} 
+  src/main.cc 
+  src/msg/DepthImage_.cpp)
+target_link_libraries(unitree_mujoco 
+  ${SIM_DEPENDENCIES} 
+  ${OpenCV_LIBS} )
 
 add_executable(test test/test_unitree_sdk2.cpp)
 target_link_libraries(test unitree_sdk2)

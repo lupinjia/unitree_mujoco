@@ -2031,17 +2031,17 @@ namespace mujoco
   Simulate::Simulate(std::unique_ptr<PlatformUIAdapter> platform_ui,
                      mjvCamera *cam, mjvOption *opt, mjvPerturb *pert,
                      bool is_passive, int depth_width, int depth_height, 
-                     int depth_crop_left, bool enable_depth)
+                     int depth_crop_left, bool enable_depth, float near_clip,
+                     float far_clip)
       : is_passive_(is_passive),
         cam(*cam),
         opt(*opt),
         pert(*pert),
         platform_ui(std::move(platform_ui)),
         uistate(this->platform_ui->state()),
-        depth_width_(depth_width),
-        depth_height_(depth_height),
-        depth_crop_left_(depth_crop_left),
-        enable_depth_(enable_depth)
+        depth_width_(depth_width), depth_height_(depth_height),
+        depth_crop_left_(depth_crop_left), enable_depth_(enable_depth),
+        near_clip_(near_clip), far_clip_(far_clip)
   {
     mjv_defaultScene(&scn);
     mjv_defaultSceneState(&scnstate_);
@@ -3004,7 +3004,7 @@ namespace mujoco
       float near = this->m_->vis.map.znear * extent;
       float far = this->m_->vis.map.zfar * extent;
       mjr_readPixels(nullptr, depth_buffer_, depth_rect, &this->platform_ui->mjr_context());
-      // Convert depth buffer to depth value, raw value is already in meters
+      // Convert depth buffer to depth value, raw value is in [0,1]
       for(int y = 0; y < depth_height_; y++)
       {
         for(int x = 0; x < (depth_width_ - depth_crop_left_); x++)
@@ -3013,6 +3013,18 @@ namespace mujoco
           int val_index = (y * (depth_width_ - depth_crop_left_)) + x;
           depth_value_[val_index] = depth_buffer_[buf_index];
           depth_value_[val_index] = near / (1.0f - depth_value_[val_index] * (1.0f - near / far) );
+          // clip depth value according to near_clip and far_clip (set in config)
+          if (depth_value_[val_index] < near_clip_)
+          {
+            depth_value_[val_index] = near_clip_;
+          }
+          if (depth_value_[val_index] > far_clip_)
+          {
+            depth_value_[val_index] = far_clip_;
+          }
+          // normalize to [0,1]
+          depth_value_[val_index] = (depth_value_[val_index] - near_clip_) 
+                                    / (far_clip_ - near_clip_);
         }
       }
     }

@@ -69,7 +69,8 @@ namespace mujoco
     Simulate(
         std::unique_ptr<PlatformUIAdapter> platform_ui_adapter,
         mjvCamera *cam, mjvOption *opt, mjvPerturb *pert, bool is_passive,
-        int depth_width, int depth_height, int depth_crop_left, bool enable_depth);
+        int depth_width, int depth_height, int depth_crop_left, bool enable_depth,
+        float near_clip, float far_clip);
 
     // Synchronize mjModel and mjData state with UI inputs, and update
     // visualization.
@@ -275,6 +276,8 @@ namespace mujoco
     int depth_crop_left_;
     float* depth_value_ = nullptr; // depth values, size (depth_width_ - depth_crop_left_) * depth_height_
     float* depth_buffer_ = nullptr; // depth buffer, size depth_width_ * depth_height_
+    float near_clip_;
+    float far_clip_;
 
     // additional user-defined visualization geoms (used in passive mode)
     mjvScene *user_scn = nullptr;
