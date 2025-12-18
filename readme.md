@@ -6,6 +6,7 @@ The architecture is the same as the original [unitree_sdk2](https://github.com/u
 ## Additional Dependencies
 
 - [opencv 4.12.0](https://github.com/opencv/opencv/tree/4.12.0)
+- [mujoco 3.2.7](https://github.com/google-deepmind/mujoco/tree/3.2.7)
 
 ## Features
 
