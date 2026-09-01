@@ -1,5 +1,5 @@
 robot: "go2"  # Robot name, "go2", "b2", "b2w", "h1", "go2w", "g1"
-robot_scene: "scene.xml" # Robot scene, /unitree_robots/[robot]/scene.xml 
+robot_scene: "parkour_scene.xml" # Robot scene, /unitree_robots/[robot]/scene.xml 
 
 domain_id: 1    # Domain id
 interface: "lo" # Interface 
@@ -15,9 +15,9 @@ enable_elastic_band: 0 # Virtual spring band, used for lifting h1
 
 # Depth camera settings
 enable_depth: 1
-depth_width: 320
-depth_height: 240
-crop_left: 8
-far_clip: 10.0
-near_clip: 0.175
-depth_dt: 0.1 # Depth camera update interval (s)
+depth_width: 53
+depth_height: 30
+crop_left: 0
+far_clip: 2.5
+near_clip: 0.105
+depth_dt: 0.02 # Depth camera update interval (s)

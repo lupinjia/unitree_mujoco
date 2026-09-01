@@ -3023,8 +3023,7 @@ namespace mujoco
             depth_value_[val_index] = far_clip_;
           }
           // normalize to [0,1]
-          depth_value_[val_index] = (depth_value_[val_index] - near_clip_) 
-                                    / (far_clip_ - near_clip_);
+          depth_value_[val_index] = depth_value_[val_index] / far_clip_;
         }
       }
     }
