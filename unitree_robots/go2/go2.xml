@@ -21,7 +21,7 @@
       </default>
       <default class="knee">
         <joint range="-2.7227 -0.83776"/>
-        <motor ctrlrange="-45.43 45.43"/>
+        <motor ctrlrange="-35.1 35.1"/>
       </default>
       <default class="visual">
         <geom type="mesh" contype="0" conaffinity="0" group="2"/>

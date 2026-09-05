@@ -33,6 +33,21 @@ NUM_MOTOR_IDL_HG = 35
 
 class UnitreeSdk2Bridge:
 
+    # Linear decay actuator parameters for Go2
+    # Based on mjlab's LinearDecayPdActuator configuration
+    ACTUATOR_PARAMS = {
+        "hip": {
+            "effort_limit": 23.7,      # Nm
+            "velocity_limit": 30.0,    # rad/s
+            "knee_point_velocity": 13.5,  # rad/s
+        },
+        "knee": {
+            "effort_limit": 35.1,      # Nm
+            "velocity_limit": 20.0,    # rad/s
+            "knee_point_velocity": 9.0,   # rad/s
+        },
+    }
+
     def __init__(self, mj_model, mj_data):
         self.mj_model = mj_model
         self.mj_data = mj_data
@@ -45,6 +60,17 @@ class UnitreeSdk2Bridge:
         self.idl_type = (self.num_motor > NUM_MOTOR_IDL_GO) # 0: unitree_go, 1: unitree_hg
 
         self.joystick = None
+
+        # Build actuator type mapping for linear decay
+        self.actuator_types = []
+        for i in range(self.num_motor):
+            name = mujoco.mj_id2name(
+                self.mj_model, mujoco._enums.mjtObj.mjOBJ_ACTUATOR, i
+            )
+            if name and ("_calf" in name or "_knee" in name.lower()):
+                self.actuator_types.append("knee")
+            else:
+                self.actuator_types.append("hip")
 
         # Check sensor
         for i in range(self.dim_motor_sensor, self.mj_model.nsensor):
@@ -108,10 +134,24 @@ class UnitreeSdk2Bridge:
             "left": 15,
         }
 
+    @staticmethod
+    def linear_decay_clip(tau_raw, dq, effort_limit, velocity_limit, knee_point_velocity):
+        """Clip torque using trapezoidal velocity-torque envelope.
+        
+        Below knee_point_velocity: full effort_limit available.
+        Between knee_point_velocity and velocity_limit: linear decay to zero.
+        Above velocity_limit: zero torque.
+        """
+        v_knee = max(0.0, min(knee_point_velocity, velocity_limit))
+        denom = max(velocity_limit - v_knee, 1e-6)
+        tau_max = effort_limit * max(velocity_limit - abs(dq), 0.0) / denom
+        tau_max = max(0.0, min(tau_max, effort_limit))
+        return max(-tau_max, min(tau_raw, tau_max))
+
     def LowCmdHandler(self, msg: LowCmd_):
         if self.mj_data != None:
             for i in range(self.num_motor):
-                self.mj_data.ctrl[i] = (
+                tau_pd = (
                     msg.motor_cmd[i].tau
                     + msg.motor_cmd[i].kp
                     * (msg.motor_cmd[i].q - self.mj_data.sensordata[i])
@@ -120,6 +160,17 @@ class UnitreeSdk2Bridge:
                         msg.motor_cmd[i].dq
                         - self.mj_data.sensordata[i + self.num_motor]
                     )
+                )
+                
+                joint_type = self.actuator_types[i]
+                params = self.ACTUATOR_PARAMS[joint_type]
+                dq = self.mj_data.sensordata[i + self.num_motor]
+                
+                self.mj_data.ctrl[i] = self.linear_decay_clip(
+                    tau_pd, dq,
+                    params["effort_limit"],
+                    params["velocity_limit"],
+                    params["knee_point_velocity"]
                 )
 
     def PublishLowState(self):

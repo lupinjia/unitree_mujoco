@@ -12,6 +12,12 @@
 
 #define MOTOR_SENSOR_NUM 3
 
+struct ActuatorParams {
+    double effort_limit;
+    double velocity_limit;
+    double knee_point_velocity;
+};
+
 class UnitreeSDK2BridgeBase
 {
 public:
@@ -19,6 +25,7 @@ public:
     : mj_model_(model), mj_data_(data)
     {
         _check_sensor();
+        _build_actuator_map();
         if(param::config.print_scene_information == 1) {
             printSceneInformation();
         }
@@ -80,6 +87,16 @@ protected:
 
     std::shared_ptr<unitree::common::UnitreeJoystick> joystick = nullptr;
 
+    std::vector<ActuatorParams> actuator_params_;
+
+    static double linear_decay_clip(double tau_raw, double dq, const ActuatorParams& params) {
+        double v_knee = std::max(0.0, std::min(params.knee_point_velocity, params.velocity_limit));
+        double denom = std::max(params.velocity_limit - v_knee, 1e-6);
+        double tau_max = params.effort_limit * std::max(params.velocity_limit - std::abs(dq), 0.0) / denom;
+        tau_max = std::max(0.0, std::min(tau_max, params.effort_limit));
+        return std::max(-tau_max, std::min(tau_raw, tau_max));
+    }
+
     void _check_sensor()
     {
         num_motor_ = mj_model_->nu;
@@ -93,6 +110,19 @@ protected:
             }
             if (strcmp(name, "frame_pos") == 0) {
                 have_frame_sensor_ = true;
+            }
+        }
+    }
+
+    void _build_actuator_map()
+    {
+        actuator_params_.resize(num_motor_);
+        for (int i = 0; i < num_motor_; i++) {
+            const char* name = mj_id2name(mj_model_, mjOBJ_ACTUATOR, i);
+            if (name && (strstr(name, "_calf") != nullptr || strstr(name, "_knee") != nullptr)) {
+                actuator_params_[i] = {35.1, 20.0, 9.0};
+            } else {
+                actuator_params_[i] = {23.7, 30.0, 13.5};
             }
         }
     }
@@ -112,9 +142,10 @@ public:
             const typename LowCmd_t::MsgType msg_ = *(const typename LowCmd_t::MsgType*)msg;
             for(int i(0); i<num_motor_; i++) {
                 auto & m = msg_.motor_cmd()[i];
-                mj_data_->ctrl[i] = m.tau() +
-                                    m.kp() * (m.q() - mj_data_->sensordata[i]) +
-                                    m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
+                double tau_pd = m.tau() +
+                                m.kp() * (m.q() - mj_data_->sensordata[i]) +
+                                m.kd() * (m.dq() - mj_data_->sensordata[i + num_motor_]);
+                mj_data_->ctrl[i] = linear_decay_clip(tau_pd, mj_data_->sensordata[i + num_motor_], actuator_params_[i]);
             }
         });
         lowstate = std::make_unique<LowState_t>();
