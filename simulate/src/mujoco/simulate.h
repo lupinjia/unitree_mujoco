@@ -148,12 +148,17 @@ namespace mujoco
     std::vector<mjtNum> ctrl_;
     std::vector<mjtNum> ctrl_prev_;
 
-    mjvSceneState scnstate_;
+    // Passive viewers render from owned snapshots so render-side UI and camera
+    // operations never retain references into caller-owned model/data memory.
+    mjModel *passive_model_ = nullptr;
+    mjData *passive_data_ = nullptr;
     mjOption mjopt_prev_;
+    mjVisual mjvis_prev_;
+    mjStatistic mjstat_prev_;
     mjvOption opt_prev_;
     mjvCamera cam_prev_;
 
-    int warn_vgeomfull_prev_;
+    int warn_vgeomfull_prev_ = 0;
 
     // pending GUI-driven actions, to be applied at the next call to Sync
     struct
@@ -259,6 +264,9 @@ namespace mujoco
 
     // abstract visualization
     mjvScene scn;
+    // Dedicated scene for depth rendering; never overwrite the interactive scene.
+    mjvScene depth_scn;
+    bool depth_scene_initialized_ = false;
     mjvCamera &cam;
     mjvOption &opt;
     mjvPerturb &pert;
@@ -276,12 +284,14 @@ namespace mujoco
     int depth_crop_left_;
     float* depth_value_ = nullptr; // depth values, size (depth_width_ - depth_crop_left_) * depth_height_
     float* depth_buffer_ = nullptr; // depth buffer, size depth_width_ * depth_height_
+    mutable std::mutex depth_value_mtx_;
     float near_clip_;
     float far_clip_;
 
     // additional user-defined visualization geoms (used in passive mode)
     mjvScene *user_scn = nullptr;
     mjtByte user_scn_flags_prev_[mjNRNDFLAG];
+    std::vector<mjvGeom> user_geoms_snapshot_;
 
     // OpenGL rendering and UI
     int refresh_rate = 60;

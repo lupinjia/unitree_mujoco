@@ -107,6 +107,100 @@ namespace
     }
   }
 
+  template <typename T>
+  void MergeUiValue(T &live, const T &ui_value, T &baseline)
+  {
+    if (ui_value != baseline)
+    {
+      live = ui_value;
+    }
+    baseline = ui_value;
+  }
+
+  template <typename T, size_t N>
+  void MergeUiValue(T (&live)[N], const T (&ui_value)[N], T (&baseline)[N])
+  {
+    for (size_t i = 0; i < N; ++i)
+    {
+      MergeUiValue(live[i], ui_value[i], baseline[i]);
+    }
+  }
+
+  void MergeUiVisual(mjVisual &live, const mjVisual &ui_value, mjVisual &baseline)
+  {
+#define MERGE_VISUAL(path) MergeUiValue(live.path, ui_value.path, baseline.path)
+    MERGE_VISUAL(headlight.active);
+    MERGE_VISUAL(headlight.ambient);
+    MERGE_VISUAL(headlight.diffuse);
+    MERGE_VISUAL(headlight.specular);
+    MERGE_VISUAL(global.orthographic);
+    MERGE_VISUAL(global.fovy);
+    MERGE_VISUAL(global.azimuth);
+    MERGE_VISUAL(global.elevation);
+    MERGE_VISUAL(map.stiffness);
+    MERGE_VISUAL(map.stiffnessrot);
+    MERGE_VISUAL(map.force);
+    MERGE_VISUAL(map.torque);
+    MERGE_VISUAL(map.alpha);
+    MERGE_VISUAL(map.fogstart);
+    MERGE_VISUAL(map.fogend);
+    MERGE_VISUAL(map.znear);
+    MERGE_VISUAL(map.zfar);
+    MERGE_VISUAL(map.haze);
+    MERGE_VISUAL(map.shadowclip);
+    MERGE_VISUAL(map.shadowscale);
+    MERGE_VISUAL(scale.forcewidth);
+    MERGE_VISUAL(scale.contactwidth);
+    MERGE_VISUAL(scale.contactheight);
+    MERGE_VISUAL(scale.connect);
+    MERGE_VISUAL(scale.com);
+    MERGE_VISUAL(scale.camera);
+    MERGE_VISUAL(scale.light);
+    MERGE_VISUAL(scale.selectpoint);
+    MERGE_VISUAL(scale.jointlength);
+    MERGE_VISUAL(scale.jointwidth);
+    MERGE_VISUAL(scale.actuatorlength);
+    MERGE_VISUAL(scale.actuatorwidth);
+    MERGE_VISUAL(scale.framelength);
+    MERGE_VISUAL(scale.framewidth);
+    MERGE_VISUAL(scale.constraint);
+    MERGE_VISUAL(scale.slidercrank);
+    MERGE_VISUAL(rgba.fog);
+    MERGE_VISUAL(rgba.haze);
+    MERGE_VISUAL(rgba.force);
+    MERGE_VISUAL(rgba.inertia);
+    MERGE_VISUAL(rgba.joint);
+    MERGE_VISUAL(rgba.actuator);
+    MERGE_VISUAL(rgba.actuatornegative);
+    MERGE_VISUAL(rgba.actuatorpositive);
+    MERGE_VISUAL(rgba.com);
+    MERGE_VISUAL(rgba.camera);
+    MERGE_VISUAL(rgba.light);
+    MERGE_VISUAL(rgba.selectpoint);
+    MERGE_VISUAL(rgba.connect);
+    MERGE_VISUAL(rgba.contactpoint);
+    MERGE_VISUAL(rgba.contactforce);
+    MERGE_VISUAL(rgba.contactfriction);
+    MERGE_VISUAL(rgba.contacttorque);
+    MERGE_VISUAL(rgba.contactgap);
+    MERGE_VISUAL(rgba.rangefinder);
+    MERGE_VISUAL(rgba.constraint);
+    MERGE_VISUAL(rgba.slidercrank);
+    MERGE_VISUAL(rgba.crankbroken);
+    MERGE_VISUAL(rgba.frustum);
+    MERGE_VISUAL(rgba.bv);
+    MERGE_VISUAL(rgba.bvactive);
+#undef MERGE_VISUAL
+  }
+
+  void MergeUiStatistic(mjStatistic &live, const mjStatistic &ui_value,
+                        mjStatistic &baseline)
+  {
+    MergeUiValue(live.meansize, ui_value.meansize, baseline.meansize);
+    MergeUiValue(live.extent, ui_value.extent, baseline.extent);
+    MergeUiValue(live.center, ui_value.center, baseline.center);
+  }
+
   //------------------------------------------- global -----------------------------------------------
 
   const double zoom_increment = 0.02; // ratio of one click-wheel zoom increment to vertical extent
@@ -318,7 +412,7 @@ namespace
     memset(sim->figcost.linepnt, 0, mjMAXLINE * sizeof(int));
 
     // number of islands that have diagnostics
-    int nisland = mjMIN(d->solver_nisland, mjNISLAND);
+    int nisland = mjMIN(d->nisland, mjNISLAND);
 
     // iterate over islands
     for (int k = 0; k < nisland; k++)
@@ -353,7 +447,7 @@ namespace
         sim->figconstraint.linedata[start + 4][2 * i] = i;
 
         // y
-        int nefc = nisland == 1 ? d->nefc : d->island_efcnum[k];
+        int nefc = nisland == 1 ? d->nefc : d->island_nefc[k];
         sim->figconstraint.linedata[start + 0][2 * i + 1] = nefc;
         const mjSolverStat *stat = d->solver + k * mjNSOLVER + i;
         sim->figconstraint.linedata[start + 1][2 * i + 1] = stat->nactive;
@@ -610,7 +704,7 @@ namespace
     char tmp[20];
 
     // number of islands with statistics
-    int nisland = mjMIN(d->solver_nisland, mjNISLAND);
+    int nisland = mjMIN(d->nisland, mjNISLAND);
 
     // compute solver error (maximum over islands)
     mjtNum solerr = 0;
@@ -681,7 +775,7 @@ namespace
       }
 
       // add islands if enabled
-      if (mjENABLED(mjENBL_ISLAND))
+      if (!(m->opt.disableflags & mjDSBL_ISLAND))
       {
         mju::sprintf_arr(tmp, "\n%d", d->nisland);
         mju::strcat_arr(content, tmp);
@@ -704,7 +798,6 @@ namespace
     mju::strcpy_arr(sim->ui0.sect[SECT_WATCH].item[2].multi.name[0], "invalid field");
 
     // prepare symbols needed by xmacro
-    MJDATA_POINTERS_PREAMBLE(m);
 
 // find specified field in mjData arrays, update value
 #define X(TYPE, NAME, NR, NC)                                                            \
@@ -731,7 +824,7 @@ namespace
   // make physics section of UI
   void MakePhysicsSection(mj::Simulate *sim)
   {
-    mjOption *opt = sim->is_passive_ ? &sim->scnstate_.model.opt : &sim->m_->opt;
+    mjOption *opt = sim->is_passive_ ? &sim->passive_model_->opt : &sim->m_->opt;
     mjuiDef defPhysics[] = {
         {mjITEM_SECTION, "Physics", mjPRESERVE, nullptr, "AP"},
         {mjITEM_SELECT, "Integrator", 2, &(opt->integrator), "Euler\nRK4\nimplicit\nimplicitfast"},
@@ -748,7 +841,6 @@ namespace
         {mjITEM_EDITNUM, "Noslip Tol", 2, &(opt->noslip_tolerance), "1 0 1"},
         {mjITEM_EDITINT, "CCD Iter", 2, &(opt->ccd_iterations), "1 0 1000"},
         {mjITEM_EDITNUM, "CCD Tol", 2, &(opt->ccd_tolerance), "1 0 1"},
-        {mjITEM_EDITNUM, "API Rate", 2, &(opt->apirate), "1 0 1000"},
         {mjITEM_EDITINT, "SDF Iter", 2, &(opt->sdf_iterations), "1 1 20"},
         {mjITEM_EDITINT, "SDF Init", 2, &(opt->sdf_initpoints), "1 1 100"},
         {mjITEM_SEPARATOR, "Physical Parameters", mjPRESERVE},
@@ -922,8 +1014,8 @@ namespace
   // make visualization section of UI
   void MakeVisualizationSection(mj::Simulate *sim, const mjModel *m)
   {
-    mjStatistic *stat = sim->is_passive_ ? &sim->scnstate_.model.stat : &sim->m_->stat;
-    mjVisual *vis = sim->is_passive_ ? &sim->scnstate_.model.vis : &sim->m_->vis;
+    mjStatistic *stat = sim->is_passive_ ? &sim->passive_model_->stat : &sim->m_->stat;
+    mjVisual *vis = sim->is_passive_ ? &sim->passive_model_->vis : &sim->m_->vis;
 
     mjuiDef defVisualization[] = {
         {mjITEM_SECTION, "Visualization", mjPRESERVE, nullptr, "AV"},
@@ -1562,7 +1654,7 @@ namespace
       // physics section
       else if (it && it->sectionid == SECT_PHYSICS && sim->m_)
       {
-        mjOption *opt = sim->is_passive_ ? &sim->scnstate_.model.opt : &sim->m_->opt;
+        mjOption *opt = sim->is_passive_ ? &sim->passive_model_->opt : &sim->m_->opt;
 
         // update disable flags in mjOption
         opt->disableflags = 0;
@@ -1896,12 +1988,11 @@ namespace
       // emulate vertical mouse motion = 2% of window height
       if (sim->m_ && !sim->is_passive_)
       {
-        mjv_moveCamera(sim->m_, mjMOUSE_ZOOM, 0, -zoom_increment * state->sy, &sim->scn, &sim->cam);
+        mjv_moveCamera(sim->m_, mjMOUSE_ZOOM, 0, -zoom_increment * state->sy, &sim->cam);
       }
-      else
+      else if (sim->passive_model_)
       {
-        mjv_moveCameraFromState(
-            &sim->scnstate_, mjMOUSE_ZOOM, 0, -zoom_increment * state->sy, &sim->scn, &sim->cam);
+        mjv_moveCamera(sim->passive_model_, mjMOUSE_ZOOM, 0, -zoom_increment * state->sy, &sim->cam);
       }
       return;
     }
@@ -1911,7 +2002,8 @@ namespace
     {
       // set perturbation
       int newperturb = 0;
-      if (state->control && sim->pert.select > 0 && (sim->m_ || sim->is_passive_))
+      if (state->control && sim->pert.select > 0 &&
+          ((!sim->is_passive_ && sim->m_) || (sim->passive_model_ && sim->passive_data_)))
       {
         // right: translate;  left: rotate
         if (state->right)
@@ -1929,7 +2021,8 @@ namespace
       }
 
       // handle double-click
-      if (state->doubleclick && (sim->m_ || sim->is_passive_))
+      if (state->doubleclick &&
+          ((!sim->is_passive_ && sim->m_) || (sim->passive_model_ && sim->passive_data_)))
       {
         sim->pending_.select = true;
         std::memcpy(&sim->pending_.select_state, state, sizeof(sim->pending_.select_state));
@@ -1943,7 +2036,8 @@ namespace
     }
 
     // 3D release
-    if (state->type == mjEVENT_RELEASE && state->dragrect == 3 && (sim->m_ || sim->is_passive_))
+    if (state->type == mjEVENT_RELEASE && state->dragrect == 3 &&
+        ((!sim->is_passive_ && sim->m_) || (sim->passive_model_ && sim->passive_data_)))
     {
       // stop perturbation
       sim->pert.active = 0;
@@ -1952,7 +2046,8 @@ namespace
     }
 
     // 3D move
-    if (state->type == mjEVENT_MOVE && state->dragrect == 3 && (sim->m_ || sim->is_passive_))
+    if (state->type == mjEVENT_MOVE && state->dragrect == 3 &&
+        ((!sim->is_passive_ && sim->m_) || (sim->passive_model_ && sim->passive_data_)))
     {
       // determine action based on mouse button
       mjtMouse action;
@@ -1981,9 +2076,8 @@ namespace
         }
         else
         {
-          mjv_movePerturbFromState(
-              &sim->scnstate_, action, state->dx / r.height, -state->dy / r.height,
-              &sim->scn, &sim->pert);
+          mjv_movePerturb(sim->passive_model_, sim->passive_data_, action,
+                          state->dx / r.height, -state->dy / r.height, &sim->scn, &sim->pert);
         }
       }
       else
@@ -1992,13 +2086,12 @@ namespace
         {
           mjv_moveCamera(
               sim->m_, action, state->dx / r.height, -state->dy / r.height,
-              &sim->scn, &sim->cam);
+              &sim->cam);
         }
         else
         {
-          mjv_moveCameraFromState(
-              &sim->scnstate_, action, state->dx / r.height, -state->dy / r.height,
-              &sim->scn, &sim->cam);
+          mjv_moveCamera(sim->passive_model_, action, state->dx / r.height,
+                         -state->dy / r.height, &sim->cam);
         }
       }
       return;
@@ -2044,7 +2137,15 @@ namespace mujoco
         near_clip_(near_clip), far_clip_(far_clip)
   {
     mjv_defaultScene(&scn);
-    mjv_defaultSceneState(&scnstate_);
+    mjv_defaultScene(&depth_scn);
+    if (enable_depth_ && (depth_width_ <= 0 || depth_height_ <= 0 ||
+                          depth_crop_left_ < 0 || depth_crop_left_ >= depth_width_ ||
+                          !std::isfinite(near_clip_) || !std::isfinite(far_clip_) ||
+                          near_clip_ < 0 || far_clip_ <= near_clip_))
+    {
+      std::fprintf(stderr, "Invalid depth camera dimensions, crop, or clipping range; depth disabled.\n");
+      enable_depth_ = false;
+    }
   }
 
   // synchronize model and data
@@ -2131,14 +2232,13 @@ namespace mujoco
     {
       // synchronize m_->opt with changes made via the UI
 #define X(name)                                                \
-  if (IsDifferent(scnstate_.model.opt.name, mjopt_prev_.name)) \
+  if (IsDifferent(passive_model_->opt.name, mjopt_prev_.name)) \
   {                                                            \
     pending_.ui_update_physics = true;                         \
-    Copy(m_->opt.name, scnstate_.model.opt.name);              \
+    Copy(m_->opt.name, passive_model_->opt.name);              \
   }
 
       X(timestep);
-      X(apirate);
       X(impratio);
       X(tolerance);
       X(noslip_tolerance);
@@ -2157,6 +2257,8 @@ namespace mujoco
       X(jacobian);
       X(solver);
       X(iterations);
+      X(ls_iterations);
+      X(ls_tolerance);
       X(noslip_iterations);
       X(ccd_iterations);
       X(disableflags);
@@ -2165,14 +2267,16 @@ namespace mujoco
       X(sdf_initpoints);
       X(sdf_iterations);
 
+      // Merge only UI-edited visualization/statistic values into the live
+      // model; values changed only by the caller remain authoritative.
+      MergeUiVisual(m_->vis, passive_model_->vis, mjvis_prev_);
+      MergeUiStatistic(m_->stat, passive_model_->stat, mjstat_prev_);
+      // Copy refreshed caller model fields without replacing the destination
+      // model object, keeping addresses used by UI definitions stable.
+      mjv_copyModel(passive_model_, m_);
+
 #undef X
 
-      // synchronize number of mjWARN_VGEOMFULL warnings
-      if (scnstate_.data.warning[mjWARN_VGEOMFULL].number > warn_vgeomfull_prev_)
-      {
-        d_->warning[mjWARN_VGEOMFULL].number +=
-            scnstate_.data.warning[mjWARN_VGEOMFULL].number - warn_vgeomfull_prev_;
-      }
     }
 
     if (pending_.save_xml)
@@ -2355,24 +2459,25 @@ namespace mujoco
     }
     else
     {
-      mjv_updateSceneState(m_, d_, &this->opt, &scnstate_);
+      mj_copyData(passive_data_, passive_model_, d_);
+      mjv_updateScene(passive_model_, passive_data_, &this->opt, &this->pert, &this->cam, mjCAT_ALL, &this->scn);
 
-      // append geoms from user_scn to scnstate_ scratch space
+      // append user geoms to the render scene, bounded by its allocated capacity
       if (user_scn)
       {
-        int ngeom = user_scn->ngeom;
-        int maxgeom = scnstate_.scratch.maxgeom - scnstate_.scratch.ngeom;
+        int ngeom = mjMIN(user_scn->ngeom, user_scn->maxgeom);
+        int maxgeom = scn.maxgeom - scn.ngeom;
         if (ngeom > maxgeom)
         {
-          mj_warning(d_, mjWARN_VGEOMFULL, scnstate_.scratch.maxgeom);
           ngeom = maxgeom;
+          scn.status = 1;
         }
         if (ngeom > 0)
         {
-          std::memcpy(scnstate_.scratch.geoms + scnstate_.scratch.ngeom,
+          std::memcpy(scn.geoms + scn.ngeom,
                       user_scn->geoms,
                       sizeof(mjvGeom) * ngeom);
-          scnstate_.scratch.ngeom += ngeom;
+          scn.ngeom += ngeom;
         }
       }
 
@@ -2391,8 +2496,20 @@ namespace mujoco
         Copy(user_scn_flags_prev_, user_scn->flags);
       }
 
-      mjopt_prev_ = scnstate_.model.opt;
-      warn_vgeomfull_prev_ = scnstate_.data.warning[mjWARN_VGEOMFULL].number;
+      mjopt_prev_ = passive_model_->opt;
+      mjvis_prev_ = passive_model_->vis;
+      mjstat_prev_ = passive_model_->stat;
+
+      // Capture caller-owned user geoms only at the Sync boundary.
+      user_geoms_snapshot_.clear();
+      if (user_scn)
+      {
+        const int count = mjMIN(user_scn->ngeom, user_scn->maxgeom);
+        if (count > 0)
+        {
+          user_geoms_snapshot_.assign(user_scn->geoms, user_scn->geoms + count);
+        }
+      }
     }
 
     // update settings
@@ -2483,10 +2600,24 @@ namespace mujoco
       printf("depth camera enabled.\n");
       const char* depth_camera_name = "depth_camera";
       int depth_cam_id = mj_name2id(this->m_, mjOBJ_CAMERA, depth_camera_name);
+      if (depth_cam_id < 0 || depth_cam_id >= this->m_->ncam)
+      {
+        std::fprintf(stderr, "Depth camera '%s' not found; depth disabled.\n", depth_camera_name);
+        enable_depth_ = false;
+      }
+      if (enable_depth_)
+      {
       this->depth_cam.type = mjCAMERA_FIXED; // first camera is the depth_camera
       this->depth_cam.fixedcamid = depth_cam_id;
       printf("Depth camera type: %d, fixedcamid: %d\n",
             this->depth_cam.type, this->depth_cam.fixedcamid);
+      if (depth_scene_initialized_)
+      {
+        mjv_freeScene(&depth_scn);
+      }
+      mjv_makeScene(this->m_, &depth_scn, kMaxGeom);
+      depth_scene_initialized_ = true;
+      }
     }
 
     ncam_ = this->m_->ncam;
@@ -2596,8 +2727,14 @@ namespace mujoco
       mjopt_prev_ = m_->opt;
       opt_prev_ = opt;
       cam_prev_ = cam;
-      warn_vgeomfull_prev_ = d_->warning[mjWARN_VGEOMFULL].number;
-      mjv_makeSceneState(this->m_, this->d_, &this->scnstate_, kMaxGeom);
+      if (passive_data_) mj_deleteData(passive_data_);
+      if (passive_model_) mj_deleteModel(passive_model_);
+      passive_model_ = mj_copyModel(nullptr, this->m_);
+      passive_data_ = mj_makeData(passive_model_);
+      mj_copyData(passive_data_, passive_model_, this->d_);
+      mjopt_prev_ = passive_model_->opt;
+      mjvis_prev_ = passive_model_->vis;
+      mjstat_prev_ = passive_model_->stat;
     }
 
     this->platform_ui->RefreshMjrContext(this->m_, 50 * (this->font + 1));
@@ -2638,7 +2775,7 @@ namespace mujoco
     }
     else
     {
-      mjv_updateSceneState(this->m_, this->d_, &this->opt, &this->scnstate_);
+      mjv_updateScene(passive_model_, passive_data_, &this->opt, &this->pert, &this->cam, mjCAT_ALL, &this->scn);
     }
 
     // set window title to model name
@@ -2987,44 +3124,62 @@ namespace mujoco
       depth_rect.bottom = rect.bottom + rect.height - depth_height_;
       depth_rect.width = depth_width_;
       depth_rect.height = depth_height_;
-      mjv_updateScene(this->m_, this->d_,
-                      &this->opt, &this->pert, &this->depth_cam, mjCAT_ALL, &this->scn);
-      mjr_render(depth_rect, &this->scn, &this->platform_ui->mjr_context());
+      // Scene construction reads mjData and must not race the physics thread.
+      // It uses its own scene so the main selection/render scene remains intact.
+      float near = 0.0f;
+      float far = 0.0f;
+      {
+        const MutexLock lock(this->mtx);
+        if (!this->m_ || !this->d_ || !depth_scene_initialized_)
+        {
+          this->platform_ui->SwapBuffers();
+          return;
+        }
+        mjv_updateScene(this->m_, this->d_,
+                        &this->opt, &this->pert, &this->depth_cam, mjCAT_ALL, &this->depth_scn);
+        const float extent = this->m_->stat.extent;
+        near = this->m_->vis.map.znear * extent;
+        far = this->m_->vis.map.zfar * extent;
+      }
+      mjr_render(depth_rect, &this->depth_scn, &this->platform_ui->mjr_context());
       
       // Read depth buffer
       if(depth_buffer_ == nullptr)
       {
         depth_buffer_ = new float[depth_width_ * depth_height_];
       }
-      if(depth_value_ == nullptr)
-      {
-        depth_value_ = new float[(depth_width_ - depth_crop_left_) * depth_height_];
-      }
-      float extent = this->m_->stat.extent;
-      float near = this->m_->vis.map.znear * extent;
-      float far = this->m_->vis.map.zfar * extent;
+      this->platform_ui->mjr_context().readDepthMap = mjDEPTH_ZERONEAR;
       mjr_readPixels(nullptr, depth_buffer_, depth_rect, &this->platform_ui->mjr_context());
       // Convert depth buffer to depth value, raw value is in [0,1]
+      std::vector<float> frame((depth_width_ - depth_crop_left_) * depth_height_);
       for(int y = 0; y < depth_height_; y++)
       {
         for(int x = 0; x < (depth_width_ - depth_crop_left_); x++)
         {
           int buf_index = (y * depth_width_) + (x + depth_crop_left_);
           int val_index = (y * (depth_width_ - depth_crop_left_)) + x;
-          depth_value_[val_index] = depth_buffer_[buf_index];
-          depth_value_[val_index] = near / (1.0f - depth_value_[val_index] * (1.0f - near / far) );
+          float depth_value = depth_buffer_[buf_index];
+          depth_value = near / (1.0f - depth_value * (1.0f - near / far) );
           // clip depth value according to near_clip and far_clip (set in config)
-          if (depth_value_[val_index] < near_clip_)
+          if (depth_value < near_clip_)
           {
-            depth_value_[val_index] = near_clip_;
+            depth_value = near_clip_;
           }
-          if (depth_value_[val_index] > far_clip_)
+          if (depth_value > far_clip_)
           {
-            depth_value_[val_index] = far_clip_;
+            depth_value = far_clip_;
           }
           // normalize to [0,1]
-          depth_value_[val_index] = (depth_value_[val_index] - near_clip_) / (far_clip_ - near_clip_);
+          frame[val_index] = (depth_value - near_clip_) / (far_clip_ - near_clip_);
         }
+      }
+      {
+        const std::lock_guard<std::mutex> lock(depth_value_mtx_);
+        if (depth_value_ == nullptr)
+        {
+          depth_value_ = new float[frame.size()];
+        }
+        std::copy(frame.begin(), frame.end(), depth_value_);
       }
     }
 
@@ -3160,8 +3315,20 @@ namespace mujoco
         }
         else
         {
-          scnstate_.data.warning[mjWARN_VGEOMFULL].number += mjv_updateSceneFromState(
-              &scnstate_, &this->opt, &this->pert, &this->cam, mjCAT_ALL, &this->scn);
+          if (passive_model_ && passive_data_)
+          {
+            mjv_updateScene(passive_model_, passive_data_, &this->opt, &this->pert,
+                            &this->cam, mjCAT_ALL, &this->scn);
+            const int ngeom = mjMIN(static_cast<int>(user_geoms_snapshot_.size()),
+                                    mjMAX(0, scn.maxgeom - scn.ngeom));
+            if (ngeom < static_cast<int>(user_geoms_snapshot_.size())) scn.status = 1;
+            if (ngeom > 0)
+            {
+              std::memcpy(scn.geoms + scn.ngeom, user_geoms_snapshot_.data(),
+                          sizeof(mjvGeom) * ngeom);
+              scn.ngeom += ngeom;
+            }
+          }
         }
       } // MutexLock (unblocks simulation thread)
 
@@ -3201,9 +3368,17 @@ namespace mujoco
 
     const MutexLock lock(this->mtx);
     mjv_freeScene(&this->scn);
+    if (depth_scene_initialized_)
+    {
+      mjv_freeScene(&this->depth_scn);
+      depth_scene_initialized_ = false;
+    }
     if (is_passive_)
     {
-      mjv_freeSceneState(&scnstate_);
+      if (passive_data_) mj_deleteData(passive_data_);
+      if (passive_model_) mj_deleteModel(passive_model_);
+      passive_model_ = nullptr;
+      passive_data_ = nullptr;
     }
 
     this->exitrequest.store(2);

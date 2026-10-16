@@ -6,7 +6,9 @@ The architecture is the same as the original [unitree_sdk2](https://github.com/u
 ## Additional Dependencies
 
 - [opencv 4.12.0](https://github.com/opencv/opencv/tree/4.12.0)
-- [mujoco 3.2.7](https://github.com/google-deepmind/mujoco/tree/3.2.7)
+- [mujoco 3.13.0](https://github.com/google-deepmind/mujoco/tree/3.13.0) or newer
+
+  MuJoCo 3.13.0 or newer is required. A standard installation under `/usr/local` is discovered by CMake's normal package search; no MuJoCo-specific prefix needs to be hardcoded.
 
 ## Features
 

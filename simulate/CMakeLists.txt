@@ -10,7 +10,7 @@ else()
 endif()
 
 list(APPEND CMAKE_PREFIX_PATH "/opt/unitree_robotics/lib/cmake")
-find_package(mujoco REQUIRED)
+find_package(mujoco 3.13.0 REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(unitree_sdk2 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)

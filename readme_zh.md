@@ -5,6 +5,9 @@
 ## 额外依赖
 
 - [opencv 4.12.0](https://github.com/opencv/opencv/tree/4.12.0)
+- [mujoco 3.13.0](https://github.com/google-deepmind/mujoco/tree/3.13.0) 或更高版本
+
+  需要 MuJoCo 3.13.0 或更高版本。将 MuJoCo 按标准方式安装到 `/usr/local` 后，CMake 会通过默认的软件包搜索路径查找，无需硬编码专用安装前缀。
 
 ## 特点
 

@@ -4,6 +4,9 @@
 #include "mujoco/simulate.h"
 #include <unitree/common/thread/recurrent_thread.hpp>
 #include <opencv2/opencv.hpp>
+#include <algorithm>
+#include <mutex>
+#include <vector>
 #include "msg/DepthImage_.hpp"
 #include "unitree/robot/channel/channel_publisher.hpp"
 
@@ -46,36 +49,31 @@ public:
 
     void displayDepthImage()
     {
-        // Assuming depth image is rendered to a framebuffer or texture
-        // 32 bit float channel 1
-        cv::Mat depth_image(height_, width_ - crop_left_, CV_32FC1);
-
-        // Fill depth_image with simulated depth data
-        if (mj_sim_->depth_value_ == nullptr)
+        const int image_width = width_ - crop_left_;
+        std::vector<float> frame(image_width * height_, 0.0f);
         {
-            // fill with zeros if depth_value_ is not initialized
+            // Copy a complete frame while the renderer may be publishing the next one.
+            const std::lock_guard<std::mutex> lock(mj_sim_->depth_value_mtx_);
+            if (mj_sim_->depth_value_ != nullptr)
+            {
+                std::copy(mj_sim_->depth_value_, mj_sim_->depth_value_ + frame.size(), frame.begin());
+            }
+        }
+
+        cv::Mat depth_image(height_, image_width, CV_32FC1);
+        if (frame.empty())
+        {
             depth_image.setTo(cv::Scalar(0));
         }
         else
         {
-            for (int i = 0; i < height_; ++i)
-            {
-                for (int j = 0; j < width_ - crop_left_; ++j)
-                {
-                    depth_image.at<float>(i, j) = mj_sim_->depth_value_[i * (width_ - crop_left_) + j];
-                }
-            }
+            std::copy(frame.begin(), frame.end(), depth_image.ptr<float>());
         }
         // flip around y axis
         cv::flip(depth_image, depth_image, 0);
         // fill depth_image into depth_image_msg_
-        for (int i = 0; i < height_; ++i)
-        {
-            for (int j = 0; j < width_ - crop_left_; ++j)
-            {
-                depth_image_msg_.normalized_value()[i * (width_ - crop_left_) + j] = depth_image.at<float>(i, j);
-            }
-        }
+        std::copy(depth_image.ptr<float>(), depth_image.ptr<float>() + frame.size(),
+                  depth_image_msg_.normalized_value().begin());
         // publish depth image message
         if (depth_image_publisher != nullptr)
         {
